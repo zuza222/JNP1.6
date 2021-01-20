@@ -10,35 +10,35 @@ class element_OOAsm {
 protected:
     int64_t x;
 };
+
+//Nadklasa p-wartości
 class Rvalues : public virtual element_OOAsm {
 public:
-    virtual int64_t get_value() {return x;}
+    int64_t get_value() {return x;}
 };
 
-/*
+
 //@TODO: To też powinna być klasa abstrakcyjna
 //Nadklasa l-wartości
-class Lvalues {
+class Lvalues : public virtual element_OOAsm {
+protected:
+    size_t address;
+    Lvalues(size_t addr) : address(addr) {x = tab[address];}
 public:
-    virtual int64_t get_address();
+    void set_address(size_t new_addr) {
+        address = new_addr;
+        x = tab[new_addr];
+    }
 };
- */
 
 class num : public Rvalues {
 public:
     num(int64_t _x) {x = _x;}
-
-    //int64_t get_number() /*override*/ {return x;}
 };
 
-class mem : public Rvalues {
+class mem : public Rvalues, public Lvalues {
 public:
-    mem(Rvalues r) {x = r.get_value(); }
-
-    int64_t get_value() override {return tab[x];}
-
-    //@TODO: To trzeba poprawić
-    int64_t get_address() {return 2137;}
+    mem(Rvalues r) : Lvalues(r.get_value()) {}
 };
 
 class lea : public Rvalues {
@@ -63,9 +63,8 @@ int main() {
     labels[0] = "Papaj II";
     labels[1] = "WTC";
 
-    num p = num(1);
     lea q = lea("WTC");
     mem m = mem(q);
 
-    pomocnicza(q);
+    pomocnicza(m);
 }
