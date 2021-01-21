@@ -19,10 +19,15 @@ class Instruction;
 class data;
 class mov;
 
+class ArithmeticOperation;
 class add;
 class sub;
 class inc;
 class dec;
+
+class one;
+class onez;
+class ones;
 
 class Processor {
 private:
@@ -36,6 +41,10 @@ private:
     friend mem;
     friend lea;
     friend data;
+    friend ArithmeticOperation;
+    friend one;
+    friend onez;
+    friend ones;
 
 public:
     Processor(size_t _N) : N(_N), tab(new int64_t[_N]), labels(new char*[_N]) {}
@@ -133,11 +142,97 @@ private:
     Rvalue *r;
 public:
     mov(mem m, mem me) : l(&m), r(&me) {}
-    mov(mem &m, num &nu) : l(&m), r(&nu) {}
+    mov(mem m, num nu) : l(&m), r(&nu) {}
     mov(mem m, lea le) : l(&m), r(&le) {}
 
     void execute(Processor *proc) override;
 };
+
+//--------------------------------------------Arithmetic operations-------------------------------------------------------
+
+class ArithmeticOperation : Instruction {
+protected:
+    void check_flags(Processor *proc, int64_t x) {
+        proc->ZF = x == 0;
+        proc->SF = x < 0;
+    }
+};
+
+class add : ArithmeticOperation {
+private:
+    mem *l;
+    Rvalue *r;
+public:
+    add(mem m, mem me) : l(&m), r(&me) {}
+    add(mem m, num nu) : l(&m), r(&nu) {}
+    add(mem m, lea le) : l(&m), r(&le) {}
+
+    void execute(Processor *proc) override;
+};
+
+class sub : ArithmeticOperation {
+private:
+    mem *l;
+    Rvalue *r;
+public:
+    sub(mem m, mem me) : l(&m), r(&me) {}
+    sub(mem m, num nu) : l(&m), r(&nu) {}
+    sub(mem m, lea le) : l(&m), r(&le) {}
+
+    void execute(Processor *proc) override;
+};
+
+class inc : ArithmeticOperation {
+private:
+    mem *l;
+public:
+    inc(mem m) : l(&m) {}
+
+    void execute(Processor *proc) override;
+};
+
+class dec : ArithmeticOperation {
+private:
+    mem *l;
+public:
+    dec(mem m) : l(&m) {}
+
+    void execute(Processor *proc) override;
+};
+
+//--------------------------------------------ones-------------------------------------------------------
+
+class one : Instruction {
+private:
+    mem *l;
+public:
+    one(mem m) : l(&m) {}
+
+    void execute(Processor *proc) override;
+
+};
+
+class onez : Instruction {
+private:
+    mem *l;
+public:
+    onez(mem m) : l(&m) {}
+
+    void execute(Processor *proc) override;
+
+};
+
+class ones : Instruction {
+private:
+    mem *l;
+public:
+    ones(mem m) : l(&m) {}
+
+    void execute(Processor *proc) override;
+
+};
+
+
 
 
 int64_t Rvalue::get_value(Processor *proc) {return 0;}
@@ -173,6 +268,42 @@ void data::execute(Processor *proc) {
 
 void mov::execute(Processor *proc) {l->set_value(proc, r->get_value(proc));}
 
+void add::execute(Processor *proc) {
+    int64_t x = l->get_value(proc) + r->get_value(proc);
+    l->set_value(proc, x);
+    check_flags(proc, x);
+}
 
+void sub::execute(Processor *proc) {
+    int64_t x = l->get_value(proc) - r->get_value(proc);
+    l->set_value(proc, x);
+    check_flags(proc, x);
+}
+
+void inc::execute(Processor *proc) {
+    int64_t x = l->get_value(proc) + 1;
+    l->set_value(proc, x);
+    check_flags(proc, x);
+}
+
+void dec::execute(Processor *proc) {
+    int64_t x = l->get_value(proc) - 1;
+    l->set_value(proc, x);
+    check_flags(proc, x);
+}
+
+void one::execute(Processor *proc) {
+    l->set_value(proc, 1);
+}
+
+void onez::execute(Processor *proc) {
+    if (proc->ZF == 1)
+        l->set_value(proc, 1);
+}
+
+void ones::execute(Processor *proc) {
+    if (proc->SF == 1)
+        l->set_value(proc, 1);
+}
 
 #endif //ZADANIE6_OOASM_H
