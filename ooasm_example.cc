@@ -13,14 +13,14 @@ namespace {
 }
 
 int main() {
-    auto ooasm_move = program({
+    auto ooasm_move = Program({
         mov(mem(num(0)), num(42))
     });
     Computer computer1(1);
     computer1.boot(ooasm_move);
     assert(memory_dump(computer1) == "42 ");
 
-    auto ooasm_ones = program({
+    auto ooasm_ones = Program({
         dec(mem(num(1))),
         ones(mem(num(0)))
     });
@@ -28,7 +28,7 @@ int main() {
     computer2.boot(ooasm_ones);
     assert(memory_dump(computer2) == "1 -1 ");
 
-    auto ooasm_data = program({
+    auto ooasm_data = Program({
         inc(mem(lea("a"))),
         data("a", num(0)),
         data("b", num(2)),
@@ -38,7 +38,7 @@ int main() {
     computer3.boot(ooasm_data);
     assert(memory_dump(computer3) == "1 2 3 0 ");
 
-    auto ooasm_operations = program({
+    auto ooasm_operations = Program({
         data("a", num(4)),
         data("b", num(3)),
         data("c", num(2)),
