@@ -1,10 +1,7 @@
 #include <iostream>
 
-//@TODO: To powinna być klasa abstrakcyjna
-
-
-class Rvalues;  //Nadklasa p-wartości
-class Lvalues;  //Nadklasa l-wartości
+class Rvalue;  //Nadklasa p-wartości
+class Lvalue;  //Nadklasa l-wartości
 class num;
 class lea;
 class mem;
@@ -29,18 +26,21 @@ public:
 };
 
 //Nadklasa p-wartości
-class Rvalues { //: public virtual element_OOAsm {
+class Rvalue {
 public:
     virtual int64_t get_value(Processor *proc);
 };
 
-//@TODO: Ta klasa tylko ładnie wygląda, ale można ją usunąć XD
-class Lvalues {
+class Lvalue {
+protected:
+    Rvalue *r;
+    Lvalue(Rvalue *_r) : r(_r) {}
+
 public:
     virtual void set_value(Processor *proc, int64_t new_val);
 };
 
-class num : public Rvalues {
+class num : public Rvalue {
 private:
     int64_t x;
 public:
@@ -49,7 +49,7 @@ public:
     int64_t get_value(Processor *proc) override;
 };
 
-class lea : public Rvalues {
+class lea : public Rvalue {
 private:
     char *id;
 public:
@@ -58,26 +58,22 @@ public:
     int64_t get_value(Processor *proc) override;
 };
 
-class mem : public Rvalues, public Lvalues {
-
-private:
-    Rvalues *r;
-    mem(Rvalues *_r) : r(_r) {}
-
+class mem : public Rvalue, public Lvalue {
 public:
-    //@TODO: Te konstruktory są strasznie brzydkie, ale nie wiem jak zrobić referencję kiedy argumentem jest obiekt
-    mem(num n) : r(&n) {}
-    mem(lea l) : r(&l) {}
-    mem(mem &m) : r(&m) {}
+    //@TODO: Te konstruktory są strasznie brzydkie (ładniej byłoby jakbyśmy mogli wczytać po prostu Rvalue),
+    //@TODO: ale nie wiem jak zrobić referencję kiedy argumentem jest obiekt
+    mem(num n) : Lvalue(&n) {}
+    mem(lea l) : Lvalue(&l) {}
+    mem(mem &m) : Lvalue(m) {}
 
     int64_t get_value(Processor *proc);
 
     void set_value(Processor *proc, int64_t new_val);
 };
 
-int64_t Rvalues::get_value(Processor *proc) {return 0;}
+int64_t Rvalue::get_value(Processor *proc) {return 0;}
 
-void Lvalues::set_value(Processor *proc, int64_t new_val) {}
+void Lvalue::set_value(Processor *proc, int64_t new_val) {}
 
 int64_t num::get_value(Processor *proc) {return x;}
 
@@ -109,7 +105,7 @@ void mem::set_value(Processor *proc, int64_t new_val) {
 }
 
 
-void pomocnicza(Processor *proc, Rvalues *r) {
+void pomocnicza(Processor *proc, Rvalue *r) {
     std::cout << r->get_value(proc) << std::endl;
 }
 
