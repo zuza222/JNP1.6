@@ -5,6 +5,9 @@
 #ifndef JNP1_6_COMPUTER_H
 #define JNP1_6_COMPUTER_H
 
+#include "ooasm.h"
+#include <bits/stdc++.h>
+
 class  Computer {
 public:
     explicit  Computer(size_t memory_size): memory(memory_size), flags() {}
@@ -17,20 +20,19 @@ public:
 
         while(p.next_instruction()) {
             const Instruction& instruction = p.get_instruction();
-            instruction.evaluate(memory);
+            instruction.evaluate(memory, flags);
         }
     }
-    void memory_dump(std::ostream& ostream) {
-        memory.dump(ostream);
+    void memory_dump(std::ostream& stream) {
+        memory.dump(stream);
     }
 
 private:
-    mem memory;
-
-
-
+    Memory memory;
+    Flags flags;
 
 };
+
 
 
 

@@ -9,6 +9,7 @@
 #include <iostream>
 
 
+
 class Rvalue;  //Nadklasa p-wartości
 class Lvalue;  //Nadklasa l-wartości
 class num;
@@ -49,6 +50,40 @@ private:
 public:
     Processor(size_t _N) : N(_N), tab(new int64_t[_N]), labels(new char*[_N]) {}
 };
+
+
+class Memory {
+public:
+    explicit Memory(size_t mem_size): mem_vector(mem_size, 0), var_addr() {}
+    void dump(std::ostream stream) {
+        for(auto i:mem_vector) {
+            stream << i << " ";
+        }
+    }
+
+private:
+    std::unordered_map<const char*, size_t> var_addr;
+    size_t next_index = 0;
+    std::vector<int64_t> mem_vector;
+};
+
+class Flags {
+    bool ZF = false;
+    bool SF = false;
+public:
+    bool is_signed() const noexcept {
+        return SF;
+    }
+    bool is_zero() const noexcept {
+        return ZF;
+    }
+    void set(int64_t res) {
+        ZF = res == 0;
+        SF = res < 0;
+    }
+};
+
+
 
 //--------------------------------------------elements of OOAsm language-----------------------------------------------
 
@@ -91,13 +126,13 @@ public:
     //@TODO: ale nie wiem jak zrobić referencję kiedy argumentem jest obiekt
     //moze coś takiego?
     // mem(RValue& rval) : m_rvalue(rval) {}
-    mem(num n) : Lvalue(&n) {}
-    mem(lea l) : Lvalue(&l) {}
+    explicit mem(num n) : Lvalue(&n) {}
+    explicit mem(lea l) : Lvalue(&l) {}
     mem(mem const &m) : Lvalue(m) {}
 
     int64_t get_value(Processor *proc);
 
-    void set_value(Processor *proc, int64_t new_val);
+    void set_value(Processor *proc, int64_t new_val) override;
 };
 
 
@@ -110,6 +145,7 @@ int64_t mem::get_value(Processor *proc) {
     else {
         //@TODO: Wyrzucamy jakiś wyjątek OutOfBoundsException
     }
+    //FIXME: return
 }
 
 void mem::set_value(Processor *proc, int64_t new_val) {
@@ -126,6 +162,9 @@ void mem::set_value(Processor *proc, int64_t new_val) {
 
 class Instruction {
     virtual void execute(Processor *proc);
+public:
+    virtual void evaluate(Memory&, Flags&) const = 0;
+    virtual void pre_evaluate(Memory&) const {}
 };
 
 class data : Instruction {
@@ -308,6 +347,14 @@ void ones::execute(Processor *proc) {
         l->set_value(proc, 1);
 }
 
+
+class end_exception : public std:: exception {
+public:
+    const char* what() const noexcept override {
+        return "end of instruction";
+    }
+};
+
 class Program {
 private:
     std:: vector<Instruction> instruction;
@@ -316,7 +363,7 @@ public:
     Program(std::initializer_list<Instruction> ins) : instruction(ins) {}
     const Instruction& get_instruction() {
         if (!next_instruction())
-            throw EndOfProgramException();
+            throw end_exception();
         return instruction[next_index++];
     }
     bool next_instruction() const{
