@@ -48,7 +48,7 @@ private:
     friend ones;
 
 public:
-    Processor(size_t _N) : N(_N), tab(new int64_t[_N]), labels(new char*[_N]) {}
+    explicit Processor(size_t _N) : N(_N), tab(new int64_t[_N]), labels(new char*[_N]) {}
 };
 
 
