@@ -16,43 +16,47 @@ class Num;
 class Lea;
 class Mem;
 
+class Instruction;
+class Data;
+class Mov;
+
+class Add;
+class Sub;
+class Inc;
+class Dec;
+
+class One;
+class Onez;
+class Ones;
+
 using value_t = int64_t;
 using ID = const char*;
-
-class Processor {
-private:
-    size_t N, abused_memory = 0;
-    value_t* tab;
-    ID *labels;
-
-    bool SF = 0;
-    bool ZF = 0;
-
-    friend Lea;
-    friend Mem;
-public:
-    explicit Processor(size_t _N) : N(_N), tab(new value_t[_N]), labels(new ID[_N]) {}
-};
 
 
 class Memory {
 public:
     explicit Memory(size_t mem_size): mem_vector(mem_size, 0), var_addr() {}
-    void dump(std::ostream stream) {
+    void dump(std::ostream& stream) {
         for(auto i:mem_vector) {
             stream << i << " ";
         }
     }
 
 private:
-    std::unordered_map<const char*, size_t> var_addr;
+    std::unordered_map<ID, size_t> var_addr;
     size_t next_index = 0;
     std::vector<value_t> mem_vector;
+
+    friend Lea;
+    friend Mem;
+    friend Data;
+    friend Mov;
 };
 
 class Flags {
     bool ZF = false;
     bool SF = false;
+
 public:
     bool is_signed() const noexcept {
         return SF;
@@ -60,7 +64,7 @@ public:
     bool is_zero() const noexcept {
         return ZF;
     }
-    void set(int64_t res) {
+    void set(value_t res) {
         ZF = res == 0;
         SF = res < 0;
     }
@@ -71,7 +75,7 @@ public:
 //Nadklasa p-wartości
 class Rvalue {
 public:
-    virtual inline value_t get_value(Processor *proc) const = 0;
+    virtual inline value_t get_value(Memory *memory) const = 0;
 };
 
 class Lvalue {
@@ -80,7 +84,8 @@ protected:
     Lvalue(std::unique_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
 
 public:
-    virtual inline void set_value(Processor *proc, int64_t new_val) const = 0;
+    virtual inline value_t get_value(Memory *memory) const = 0;
+    virtual inline void set_value(Memory *memory , value_t new_val) const = 0;
 };
 
 class Num : public Rvalue {
@@ -89,7 +94,7 @@ private:
 public:
     Num(value_t _x) : x(_x) {}
 
-    value_t inline get_value(Processor *proc) const override;
+    value_t inline get_value(Memory *memory) const override;
 };
 
 class Lea : public Rvalue {
@@ -98,29 +103,24 @@ private:
 public:
     Lea(ID _id) : id(_id) {}
 
-    value_t inline get_value(Processor *proc) const override;
+    value_t inline get_value(Memory *memory) const override;
 };
 
 class Mem : public Rvalue, public Lvalue {
 public:
-    //@TODO: Te konstruktory są strasznie brzydkie (ładniej byłoby jakbyśmy mogli wczytać po prostu Rvalue),
-    //@TODO: ale nie wiem jak zrobić referencję kiedy argumentem jest obiekt
-    //moze coś takiego?
-    // mem(RValue& rval) : m_rvalue(rval) {}
     explicit Mem(std::unique_ptr<Rvalue> &&rvalue) : Lvalue(std::move(rvalue)) {}
 
-    value_t inline get_value(Processor *proc) const override;
+    value_t inline get_value(Memory *memory) const override;
 
-    void set_value(Processor *proc, value_t new_val) const override;
+    void set_value(Memory *memory, value_t new_val) const override;
 };
 
 //--------------------------------------------Instructions-------------------------------------------------------
 
 class Instruction {
-    virtual inline void execute(Processor *proc) const = 0;
 public:
-    virtual void evaluate(Memory&, Flags&) const = 0;
-    virtual void pre_evaluate(Memory&) const {}
+    virtual void execute(Memory *memory, Flags *flags) const = 0;
+    virtual void declare(Memory *memory) const = 0;
 };
 
 class Data : Instruction {
@@ -130,9 +130,8 @@ private:
 public:
     Data(ID _id, std::unique_ptr<Num> &&_n) : id(_id), n(std::move(_n)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const {}
+    inline void declare(Memory *memory) const;
 };
 
 class Mov : Instruction {
@@ -142,12 +141,12 @@ private:
 public:
     Mov(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 //--------------------------------------------Arithmetic operations-------------------------------------------------------
+
 
 class Add : Instruction {
 private:
@@ -156,9 +155,8 @@ private:
 public:
     Add(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 class Sub : Instruction {
@@ -168,9 +166,8 @@ private:
 public:
     Sub(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 class Inc : Instruction {
@@ -179,9 +176,8 @@ private:
 public:
     Inc(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 class Dec : Instruction {
@@ -190,9 +186,8 @@ private:
 public:
     Dec(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 class One : Instruction {
@@ -201,9 +196,8 @@ private:
 public:
     One(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 
 };
 
@@ -213,9 +207,8 @@ private:
 public:
     Onez(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 class Ones : Instruction {
@@ -224,9 +217,8 @@ private:
 public:
     Ones(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
 
-    inline void execute(Processor *proc) const override;
-    inline void evaluate(Memory&, Flags&) const;
-    inline void pre_evaluate(Memory&) const;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 
@@ -238,6 +230,26 @@ public:
 };
 
 
+class program {
+private:
+    std:: vector<std::shared_ptr<Instruction>> instructions;
+    mutable size_t next_index = 0;
+public:
+    program(std::initializer_list<std::shared_ptr<Instruction>> ins) : instructions(ins) {}
+
+    const Instruction& get_instruction() const {
+        if (!next_instruction())
+            throw end_exception();
+        return *instructions[next_index++];
+    }
+    bool next_instruction() const{
+        return next_index < instructions.size();
+    }
+    void to_first_instruction() const {
+        next_index = 0;
+    }
+
+};
 
 //---------------------------------------------------unique_pointers----------------------------------------------------
 

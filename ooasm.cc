@@ -4,117 +4,63 @@
 
 #include "ooasm.h"
 
-int64_t Num::get_value(Processor *proc) const {return x;}
+int64_t Num::get_value(Memory *memory) const {return x;}
 
-int64_t Lea::get_value(Processor *proc) const {
-    for (size_t i = 0; i < proc->N; ++i) {
-        if (*id == *proc->labels[i])
-            return i;
-    }
+int64_t Lea::get_value(Memory *memory) const {
+    return memory->var_addr.at(id);
+}
 
-    //@TODO: Wyrzucamy jakiś wyjątek IDnotFound
+int64_t Mem::get_value(Memory *memory) const  {
+    return memory->mem_vector.at(rvalue->get_value(memory));
+}
 
-    return proc->N;
+void Mem::set_value(Memory *memory, value_t new_val) const {
+    memory->mem_vector.at(rvalue->get_value(memory)) = new_val;
 }
 
 
-int64_t Mem::get_value(Processor *proc) const  {
-    size_t address = rvalue->get_value(proc);
-
-    if (address < proc->N) {
-        return proc->tab[address];
-    }
-    else {
-        //@TODO: Wyrzucamy jakiś wyjątek OutOfBoundsException
-    }
-    //FIXME: return
+void Data::declare(Memory *memory) const {
+    memory->mem_vector.at(memory->next_index) = n->get_value(memory);
+    memory->var_addr.insert(std::make_pair(id, n->get_value(memory)));
 }
 
-void Mem::set_value(Processor *proc, int64_t new_val) const {
-    size_t address = rvalue->get_value(proc);
-    if (address < proc->abused_memory) {
-        proc->tab[address] = new_val;
-    }
-    else {
-        //@TODO: Zgłaszamy jakiś OutOfBoundsException
-    }
+void Mov::execute(Memory *memory, Flags *flags) const {
+    memory->mem_vector.at(memory->next_index) = rvalue->get_value(memory);
 }
 
 
-//@TODO: Coś trzeba tutaj napisać
-void Data::execute(Processor *proc) const {
-
+void Add::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) + rvalue->get_value(memory);
+    lvalue->set_value(memory, result);
+    flags->set(result);
+}
+void Sub::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) - rvalue->get_value(memory);
+    lvalue->set_value(memory, result);
+    flags->set(result);
 }
 
-void Data::evaluate(Memory&, Flags&) const {
-
+void Inc::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) + 1;
+    lvalue->set_value(memory, result);
+    flags->set(result);
 }
 
-void Data::pre_evaluate(Memory&) const {
-
-}
-
-
-void Mov::execute(Processor *proc) const {
-
-}
-
-void Mov::evaluate(Memory&, Flags&) const {
-
-}
-
-void Mov::pre_evaluate(Memory&) const {
-
+void Dec::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) - 1;
+    lvalue->set_value(memory, result);
+    flags->set(result);
 }
 
 
-void Add::execute(Processor *proc) const {
-
+void One::execute(Memory *memory, Flags *flags) const {
+    lvalue->set_value(memory, 1);
 }
-
-void Add::evaluate(Memory&, Flags&) const {
-
+void Onez::execute(Memory *memory, Flags *flags) const {
+    if (flags->is_zero())
+        lvalue->set_value(memory, 1);
 }
-
-void Add::pre_evaluate(Memory&) const {
-
-}
-
-
-void Sub::execute(Processor *proc) const {
-
-}
-
-void Sub::evaluate(Memory&, Flags&) const {
-
-}
-
-void Sub::pre_evaluate(Memory&) const {
-
-}
-
-
-void Inc::execute(Processor *proc) const {
-
-}
-
-void Inc::evaluate(Memory&, Flags&) const {
-
-}
-
-void Inc::pre_evaluate(Memory&) const {
-
-}
-
-
-void Dec::execute(Processor *proc) const {
-
-}
-
-void Dec::evaluate(Memory&, Flags&) const {
-
-}
-
-void Dec::pre_evaluate(Memory&) const {
-
+void Ones::execute(Memory *memory, Flags *flags) const {
+    if (flags->is_signed())
+        lvalue->set_value(memory, 1);
 }
