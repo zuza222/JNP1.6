@@ -11,7 +11,7 @@
 class  Computer {
 public:
     explicit  Computer(size_t memory_size): memory(memory_size), flags() {}
-    void memory_dump(std::ostream& stream) {
+    void memory_dump(std::ostream& stream) const {
         memory.dump(stream);
     }
 

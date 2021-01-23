@@ -36,7 +36,7 @@ using ID = const char*;
 class Memory {
 public:
     explicit Memory(size_t mem_size): mem_vector(mem_size, 0), var_addr() {}
-    void dump(std::ostream& stream) {
+    void dump(std::ostream& stream) const {
         for(auto i:mem_vector) {
             stream << i << " ";
         }
