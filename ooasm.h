@@ -1,53 +1,69 @@
 //
-// Created by stasiek on 19.01.2021.
+// Created by zuza on 21.01.2021.
 //
 
-#ifndef ZADANIE6_OOASM_H
-#define ZADANIE6_OOASM_H
+#ifndef JNP1_6_OOASM_H
+#define JNP1_6_OOASM_H
 
 #include <bits/stdc++.h>
 #include <iostream>
 
 
+
 class Rvalue;  //Nadklasa p-wartości
 class Lvalue;  //Nadklasa l-wartości
-class num;
-class lea;
-class mem;
+class Num;
+class Lea;
+class Mem;
 
-class Instruction;
-class data;
-class mov;
-
-class ArithmeticOperation;
-class add;
-class sub;
-class inc;
-class dec;
-
-class one;
-class onez;
-class ones;
+using value_t = int64_t;
+using ID = const char*;
 
 class Processor {
 private:
     size_t N, abused_memory = 0;
-    int64_t* tab;
-    char **labels;
+    value_t* tab;
+    ID *labels;
 
     bool SF = 0;
     bool ZF = 0;
 
-    friend mem;
-    friend lea;
-    friend data;
-    friend ArithmeticOperation;
-    friend one;
-    friend onez;
-    friend ones;
-
+    friend Lea;
+    friend Mem;
 public:
-    Processor(size_t _N) : N(_N), tab(new int64_t[_N]), labels(new char*[_N]) {}
+    explicit Processor(size_t _N) : N(_N), tab(new value_t[_N]), labels(new ID[_N]) {}
+};
+
+
+class Memory {
+public:
+    explicit Memory(size_t mem_size): mem_vector(mem_size, 0), var_addr() {}
+    void dump(std::ostream stream) {
+        for(auto i:mem_vector) {
+            stream << i << " ";
+        }
+    }
+
+private:
+    std::unordered_map<const char*, size_t> var_addr;
+    size_t next_index = 0;
+    std::vector<value_t> mem_vector;
+};
+
+class Flags {
+    bool ZF = false;
+    bool SF = false;
+public:
+    bool is_signed() const noexcept {
+        return SF;
+    }
+    bool is_zero() const noexcept {
+        return ZF;
+    }
+    void set(int64_t res) {
+        ZF = res == 0;
+        SF = res < 0;
+    }
 };
 
 //--------------------------------------------elements of OOAsm language-----------------------------------------------
@@ -55,255 +71,231 @@ public:
 //Nadklasa p-wartości
 class Rvalue {
 public:
-    virtual int64_t get_value(Processor *proc);
+    virtual inline value_t get_value(Processor *proc) const = 0;
 };
 
 class Lvalue {
 protected:
-    Rvalue *r;
-    Lvalue(Rvalue *_r) : r(_r) {}
+    std::unique_ptr<Rvalue> rvalue;
+    Lvalue(std::unique_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
 
 public:
-    virtual void set_value(Processor *proc, int64_t new_val);
+    virtual inline void set_value(Processor *proc, int64_t new_val) const = 0;
 };
 
-class num : public Rvalue {
+class Num : public Rvalue {
 private:
-    int64_t x;
+    value_t x;
 public:
-    num(int64_t _x) {x = _x;}
+    Num(value_t _x) : x(_x) {}
 
-    int64_t get_value(Processor *proc) override;
+    value_t inline get_value(Processor *proc) const override;
 };
 
-class lea : public Rvalue {
+class Lea : public Rvalue {
 private:
-    char *id;
+    ID id;
 public:
-    lea(char *_id) : id(_id) {}
+    Lea(ID _id) : id(_id) {}
 
-    int64_t get_value(Processor *proc) override;
+    value_t inline get_value(Processor *proc) const override;
 };
 
-class mem : public Rvalue, public Lvalue {
+class Mem : public Rvalue, public Lvalue {
 public:
     //@TODO: Te konstruktory są strasznie brzydkie (ładniej byłoby jakbyśmy mogli wczytać po prostu Rvalue),
     //@TODO: ale nie wiem jak zrobić referencję kiedy argumentem jest obiekt
-    mem(num n) : Lvalue(&n) {}
-    mem(lea l) : Lvalue(&l) {}
-    mem(mem const &m) : Lvalue(m) {}
+    //moze coś takiego?
+    // mem(RValue& rval) : m_rvalue(rval) {}
+    explicit Mem(std::unique_ptr<Rvalue> &&rvalue) : Lvalue(std::move(rvalue)) {}
 
-    int64_t get_value(Processor *proc);
+    value_t inline get_value(Processor *proc) const override;
 
-    void set_value(Processor *proc, int64_t new_val);
+    void set_value(Processor *proc, value_t new_val) const override;
 };
-
-
-int64_t mem::get_value(Processor *proc) {
-    size_t address = r->get_value(proc);
-
-    if (address < proc->N) {
-        return proc->tab[address];
-    }
-    else {
-        //@TODO: Wyrzucamy jakiś wyjątek OutOfBoundsException
-    }
-}
-
-void mem::set_value(Processor *proc, int64_t new_val) {
-    size_t address = r->get_value(proc);
-    if (address < proc->abused_memory) {
-        proc->tab[address] = new_val;
-    }
-    else {
-        //@TODO: Zgłaszamy jakiś OutOfBoundsException
-    }
-}
 
 //--------------------------------------------Instructions-------------------------------------------------------
 
 class Instruction {
-    virtual void execute(Processor *proc);
+    virtual inline void execute(Processor *proc) const = 0;
+public:
+    virtual void evaluate(Memory&, Flags&) const = 0;
+    virtual void pre_evaluate(Memory&) const {}
 };
 
-class data : Instruction {
+class Data : Instruction {
 private:
-    char *id;
-    num n;
+    ID id;
+    std::unique_ptr<Num> n;
 public:
-    data(char *_id, num _n) : id(_id), n(_n) {}
+    Data(ID _id, std::unique_ptr<Num> &&_n) : id(_id), n(std::move(_n)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
 };
 
-class mov : Instruction {
+class Mov : Instruction {
 private:
-    Lvalue *l;
-    Rvalue *r;
+    std::unique_ptr<Lvalue> lvalue;
+    std::unique_ptr<Rvalue> rvalue;
 public:
-    mov(mem m, mem me) : l(&m), r(&me) {}
-    mov(mem m, num nu) : l(&m), r(&nu) {}
-    mov(mem m, lea le) : l(&m), r(&le) {}
+    Mov(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
 };
 
 //--------------------------------------------Arithmetic operations-------------------------------------------------------
 
-class ArithmeticOperation : Instruction {
-protected:
-    void check_flags(Processor *proc, int64_t x) {
-        proc->ZF = x == 0;
-        proc->SF = x < 0;
+class Add : Instruction {
+private:
+    std::unique_ptr<Lvalue> lvalue;
+    std::unique_ptr<Rvalue> rvalue;
+public:
+    Add(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
+
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
+};
+
+class Sub : Instruction {
+private:
+    std::unique_ptr<Lvalue> lvalue;
+    std::unique_ptr<Rvalue> rvalue;
+public:
+    Sub(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
+
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
+};
+
+class Inc : Instruction {
+private:
+    std::unique_ptr<Lvalue> lvalue;
+public:
+    Inc(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
+};
+
+class Dec : Instruction {
+private:
+    std::unique_ptr<Lvalue> lvalue;
+public:
+    Dec(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
+};
+
+class One : Instruction {
+private:
+    std::unique_ptr<Lvalue> lvalue;
+public:
+    One(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
+
+};
+
+class Onez : Instruction {
+private:
+    std::unique_ptr<Lvalue> lvalue;
+public:
+    Onez(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
+};
+
+class Ones : Instruction {
+private:
+    std::unique_ptr<Lvalue> lvalue;
+public:
+    Ones(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+
+    inline void execute(Processor *proc) const override;
+    inline void evaluate(Memory&, Flags&) const;
+    inline void pre_evaluate(Memory&) const;
+};
+
+
+class end_exception : public std:: exception {
+public:
+    const char* what() const noexcept override {
+        return "end of instruction";
     }
 };
 
-class add : ArithmeticOperation {
-private:
-    mem *l;
-    Rvalue *r;
-public:
-    add(mem m, mem me) : l(&m), r(&me) {}
-    add(mem m, num nu) : l(&m), r(&nu) {}
-    add(mem m, lea le) : l(&m), r(&le) {}
-
-    void execute(Processor *proc) override;
-};
-
-class sub : ArithmeticOperation {
-private:
-    mem *l;
-    Rvalue *r;
-public:
-    sub(mem m, mem me) : l(&m), r(&me) {}
-    sub(mem m, num nu) : l(&m), r(&nu) {}
-    sub(mem m, lea le) : l(&m), r(&le) {}
-
-    void execute(Processor *proc) override;
-};
-
-class inc : ArithmeticOperation {
-private:
-    mem *l;
-public:
-    inc(mem m) : l(&m) {}
-
-    void execute(Processor *proc) override;
-};
-
-class dec : ArithmeticOperation {
-private:
-    mem *l;
-public:
-    dec(mem m) : l(&m) {}
-
-    void execute(Processor *proc) override;
-};
-
-//--------------------------------------------ones-------------------------------------------------------
-
-class one : Instruction {
-private:
-    mem *l;
-public:
-    one(mem m) : l(&m) {}
-
-    void execute(Processor *proc) override;
-
-};
-
-class onez : Instruction {
-private:
-    mem *l;
-public:
-    onez(mem m) : l(&m) {}
-
-    void execute(Processor *proc) override;
-
-};
-
-class ones : Instruction {
-private:
-    mem *l;
-public:
-    ones(mem m) : l(&m) {}
-
-    void execute(Processor *proc) override;
-
-};
 
 
+//---------------------------------------------------unique_pointers----------------------------------------------------
 
 
-int64_t Rvalue::get_value(Processor *proc) {return 0;}
+std::unique_ptr<Num> num(value_t value) {
+    return std::make_unique<Num>(value);
+}
 
-void Lvalue::set_value(Processor *proc, int64_t new_val) {}
+std::unique_ptr<Lea> lea(ID id) {
+    return std::make_unique<Lea>(id);
+}
 
-int64_t num::get_value(Processor *proc) {return x;}
+std::unique_ptr<Mem> mem(std::unique_ptr<Rvalue> &&rvalue) {
+    return std::make_unique<Mem>(std::move(rvalue));
+}
 
-int64_t lea::get_value(Processor *proc) {
-    for (size_t i = 0; i < proc->N; ++i) {
-        if (*id == *proc->labels[i])
-            return i;
-    }
+std::unique_ptr<Data> data(ID id, std::unique_ptr<Num> &&n) {
+    return std::make_unique<Data>(id, std::move(n));
+}
 
-    //@TODO: Wyrzucamy jakiś wyjątek IDnotFound
+std::unique_ptr<Mov> mov(std::unique_ptr<Lvalue> &&lvalue, std::unique_ptr<Rvalue> &&rvalue) {
+    return std::make_unique<Mov>(std::move(lvalue), std::move(rvalue));
+}
 
-    return proc->N;
+std::unique_ptr<Add> add(std::unique_ptr<Lvalue> &&lvalue, std::unique_ptr<Rvalue> &&rvalue) {
+    return std::make_unique<Add>(std::move(lvalue), std::move(rvalue));
+}
+
+std::unique_ptr<Sub> sub(std::unique_ptr<Lvalue> &&lvalue, std::unique_ptr<Rvalue> &&rvalue) {
+    return std::make_unique<Sub>(std::move(lvalue), std::move(rvalue));
+}
+
+std::unique_ptr<Inc> inc(std::unique_ptr<Lvalue> &&lvalue) {
+    return std::make_unique<Inc>(std::move(lvalue));
+}
+
+std::unique_ptr<Dec> dec(std::unique_ptr<Lvalue> &&lvalue) {
+    return std::make_unique<Dec>(std::move(lvalue));
 }
 
 
-void Instruction::execute(Processor *proc) {}
-
-void data::execute(Processor *proc) {
-    if (proc->abused_memory < proc->N) {
-        proc->tab[proc->abused_memory] = n.get_value(proc);
-        proc->labels[proc->abused_memory] = id;
-        proc->abused_memory++;
-    }
-    else {
-        //@TODO: Zgłaszamy jakiś OutOfBoundsException
-    }
+std::unique_ptr<One> one(std::unique_ptr<Lvalue> &&lvalue) {
+    return std::make_unique<One>(std::move(lvalue));
 }
 
-void mov::execute(Processor *proc) {l->set_value(proc, r->get_value(proc));}
-
-void add::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) + r->get_value(proc);
-    l->set_value(proc, x);
-    check_flags(proc, x);
+std::unique_ptr<Onez> onez(std::unique_ptr<Lvalue> &&lvalue) {
+    return std::make_unique<Onez>(std::move(lvalue));
 }
 
-void sub::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) - r->get_value(proc);
-    l->set_value(proc, x);
-    check_flags(proc, x);
+std::unique_ptr<Ones> ones(std::unique_ptr<Lvalue> &&lvalue) {
+    return std::make_unique<Ones>(std::move(lvalue));
 }
 
-void inc::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) + 1;
-    l->set_value(proc, x);
-    check_flags(proc, x);
-}
 
-void dec::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) - 1;
-    l->set_value(proc, x);
-    check_flags(proc, x);
-}
 
-void one::execute(Processor *proc) {
-    l->set_value(proc, 1);
-}
 
-void onez::execute(Processor *proc) {
-    if (proc->ZF == 1)
-        l->set_value(proc, 1);
-}
 
-void ones::execute(Processor *proc) {
-    if (proc->SF == 1)
-        l->set_value(proc, 1);
-}
 
-#endif //ZADANIE6_OOASM_H
+
+
+#endif //JNP1_6_OOASM_H
