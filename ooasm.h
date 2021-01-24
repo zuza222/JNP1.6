@@ -90,23 +90,25 @@ public:
 class Rvalue {
 public:
     virtual inline value_t get_value(Memory *memory) const {return 0;};
+    virtual ~Rvalue() = default;
 };
 
 class Lvalue {
 protected:
     std::shared_ptr<Rvalue> rvalue;
-    Lvalue(std::shared_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
+    explicit Lvalue(std::shared_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
 
 public:
     virtual inline value_t get_value(Memory *memory) const {return 0;};
     virtual inline void set_value(Memory *memory , value_t new_val) const {};
+    virtual ~Lvalue() = default;
 };
 
 class Num : public Rvalue {
 private:
     value_t x;
 public:
-    Num(value_t _x) : x(_x) {}
+    explicit Num(value_t _x) : x(_x) {}
 
     value_t inline get_value(Memory *memory) const override;
 };
@@ -115,7 +117,7 @@ class Lea : public Rvalue {
 private:
     ID id;
 public:
-    Lea(ID _id) : id(_id) {}
+    explicit Lea(ID _id) : id(_id) {}
 
     value_t inline get_value(Memory *memory) const override;
 };
@@ -135,6 +137,7 @@ class Instruction {
 public:
     virtual void execute(Memory *memory, Flags *flags) const = 0;
     virtual void declare(Memory *memory) const = 0;
+    virtual ~Instruction() = default;
 };
 
 class Data : public Instruction {
@@ -144,8 +147,8 @@ private:
 public:
     Data(ID _id, std::shared_ptr<Num> &&_n) : id(_id), n(std::move(_n)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const {}
-    inline void declare(Memory *memory) const;
+    inline void execute(Memory *memory, Flags *flags) const override {}
+    inline void declare(Memory *memory) const override;
 };
 
 class Mov : public Instruction {
@@ -155,8 +158,8 @@ private:
 public:
     Mov(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 };
 
 //--------------------------------------------Arithmetic operations-------------------------------------------------------
@@ -169,8 +172,8 @@ private:
 public:
     Add(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 };
 
 class Sub : public Instruction {
@@ -180,38 +183,38 @@ private:
 public:
     Sub(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 };
 
 class Inc : public Instruction {
 private:
     std::shared_ptr<Lvalue> lvalue;
 public:
-    Inc(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
+    explicit Inc(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 };
 
 class Dec : public Instruction {
 private:
     std::shared_ptr<Lvalue> lvalue;
 public:
-    Dec(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
+    explicit Dec(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 };
 
 class One : public Instruction {
 private:
     std::shared_ptr<Lvalue> lvalue;
 public:
-    One(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
+    explicit One(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 
 };
 
@@ -219,20 +222,20 @@ class Onez : public Instruction {
 private:
     std::shared_ptr<Lvalue> lvalue;
 public:
-    Onez(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
+    explicit Onez(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 };
 
 class Ones : public Instruction {
 private:
     std::shared_ptr<Lvalue> lvalue;
 public:
-    Ones(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
+    explicit Ones(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    inline void execute(Memory *memory, Flags *flags) const;
-    inline void declare(Memory *memory) const {}
+    inline void execute(Memory *memory, Flags *flags) const override;
+    inline void declare(Memory *memory) const override {}
 };
 
 
