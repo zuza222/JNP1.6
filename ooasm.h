@@ -8,68 +8,68 @@
 #include <bits/stdc++.h>
 #include <iostream>
 
-
+#define MIN_ID_LEN 1
+#define MAX_ID_LEN 10
 
 class Rvalue;  //Nadklasa p-wartości
 class Lvalue;  //Nadklasa l-wartości
-class num;
-class lea;
-class mem;
+class Num;
+class Lea;
+class Mem;
 
 class Instruction;
-class data;
-class mov;
+class Data;
+class Mov;
 
-class ArithmeticOperation;
-class add;
-class sub;
-class inc;
-class dec;
+class Add;
+class Sub;
+class Inc;
+class Dec;
 
-class one;
-class onez;
-class ones;
+class One;
+class Onez;
+class Ones;
 
-class Processor {
-private:
-    size_t N, abused_memory = 0;
-    int64_t* tab;
-    char **labels;
+using value_t = int64_t;
+using ID = const char*;
 
-    bool SF = 0;
-    bool ZF = 0;
-
-    friend mem;
-    friend lea;
-    friend data;
-    friend ArithmeticOperation;
-    friend one;
-    friend onez;
-    friend ones;
-
-public:
-    explicit Processor(size_t _N) : N(_N), tab(new int64_t[_N]), labels(new char*[_N]) {}
-};
-
+bool check_ID_correctness(ID id) {
+    std::string _id = id;
+    if (_id.length() < MIN_ID_LEN || _id.length() > MAX_ID_LEN)
+        throw std::invalid_argument("bad ID length");
+    else
+        return true;
+}
 
 class Memory {
 public:
     explicit Memory(size_t mem_size): mem_vector(mem_size, 0), var_addr() {}
-    void dump(std::ostream stream) {
+    void dump(std::ostream& stream) const {
         for(auto i:mem_vector) {
             stream << i << " ";
         }
     }
+    void reset() {
+        for(auto& i:mem_vector) {
+            i = 0;
+        }
+    }
 
 private:
-    std::unordered_map<const char*, size_t> var_addr;
+    std::unordered_map<ID, size_t> var_addr;
     size_t next_index = 0;
-    std::vector<int64_t> mem_vector;
+    std::vector<value_t> mem_vector;
+
+    friend Lea;
+    friend Mem;
+    friend Data;
+    friend Mov;
 };
 
 class Flags {
     bool ZF = false;
     bool SF = false;
+
 public:
     bool is_signed() const noexcept {
         return SF;
@@ -77,275 +77,163 @@ public:
     bool is_zero() const noexcept {
         return ZF;
     }
-    void set(int64_t res) {
+    void set(value_t res) {
         ZF = res == 0;
         SF = res < 0;
     }
+
 };
-
-
 
 //--------------------------------------------elements of OOAsm language-----------------------------------------------
 
 //Nadklasa p-wartości
 class Rvalue {
 public:
-    virtual int64_t get_value(Processor *proc);
+    virtual inline value_t get_value(Memory *memory) const {return 0;};
 };
 
 class Lvalue {
 protected:
-    Rvalue *r;
-    Lvalue(Rvalue *_r) : r(_r) {}
+    std::shared_ptr<Rvalue> rvalue;
+    Lvalue(std::shared_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
 
 public:
-    virtual void set_value(Processor *proc, int64_t new_val);
+    virtual inline value_t get_value(Memory *memory) const {return 0;};
+    virtual inline void set_value(Memory *memory , value_t new_val) const {};
 };
 
-class num : public Rvalue {
+class Num : public Rvalue {
 private:
-    int64_t x;
+    value_t x;
 public:
-    num(int64_t _x) {x = _x;}
+    Num(value_t _x) : x(_x) {}
 
-    int64_t get_value(Processor *proc) override;
+    value_t inline get_value(Memory *memory) const override;
 };
 
-class lea : public Rvalue {
+class Lea : public Rvalue {
 private:
-    char *id;
+    ID id;
 public:
-    lea(char *_id) : id(_id) {}
+    Lea(ID _id) : id(_id) {}
 
-    int64_t get_value(Processor *proc) override;
+    value_t inline get_value(Memory *memory) const override;
 };
 
-class mem : public Rvalue, public Lvalue {
+class Mem : public Rvalue, public Lvalue {
 public:
-    //@TODO: Te konstruktory są strasznie brzydkie (ładniej byłoby jakbyśmy mogli wczytać po prostu Rvalue),
-    //@TODO: ale nie wiem jak zrobić referencję kiedy argumentem jest obiekt
-    //moze coś takiego?
-    // mem(RValue& rval) : m_rvalue(rval) {}
-    explicit mem(num n) : Lvalue(&n) {}
-    explicit mem(lea l) : Lvalue(&l) {}
-    mem(mem const &m) : Lvalue(m) {}
+    explicit Mem(std::shared_ptr<Rvalue> &&rvalue) : Lvalue(std::move(rvalue)) {}
 
-    int64_t get_value(Processor *proc);
+    value_t inline get_value(Memory *memory) const override;
 
-    void set_value(Processor *proc, int64_t new_val) override;
+    void set_value(Memory *memory, value_t new_val) const override;
 };
-
-
-int64_t mem::get_value(Processor *proc) {
-    size_t address = r->get_value(proc);
-
-    if (address < proc->N) {
-        return proc->tab[address];
-    }
-    else {
-        //@TODO: Wyrzucamy jakiś wyjątek OutOfBoundsException
-    }
-    //FIXME: return
-}
-
-void mem::set_value(Processor *proc, int64_t new_val) {
-    size_t address = r->get_value(proc);
-    if (address < proc->abused_memory) {
-        proc->tab[address] = new_val;
-    }
-    else {
-        //@TODO: Zgłaszamy jakiś OutOfBoundsException
-    }
-}
 
 //--------------------------------------------Instructions-------------------------------------------------------
 
 class Instruction {
-    virtual void execute(Processor *proc);
 public:
-    virtual void evaluate(Memory&, Flags&) const = 0;
-    virtual void pre_evaluate(Memory&) const {}
+    virtual void execute(Memory *memory, Flags *flags) const = 0;
+    virtual void declare(Memory *memory) const = 0;
 };
 
-class data : Instruction {
+class Data : public Instruction {
 private:
-    char *id;
-    num n;
+    ID id;
+    std::shared_ptr<Num> n;
 public:
-    data(char *_id, num _n) : id(_id), n(_n) {}
+    Data(ID _id, std::shared_ptr<Num> &&_n) : id(_id), n(std::move(_n)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Memory *memory, Flags *flags) const {}
+    inline void declare(Memory *memory) const;
 };
 
-class mov : Instruction {
+class Mov : public Instruction {
 private:
-    Lvalue *l;
-    Rvalue *r;
+    std::shared_ptr<Lvalue> lvalue;
+    std::shared_ptr<Rvalue> rvalue;
 public:
-    mov(mem m, mem me) : l(&m), r(&me) {}
-    mov(mem m, num nu) : l(&m), r(&nu) {}
-    mov(mem m, lea le) : l(&m), r(&le) {}
+    Mov(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
 //--------------------------------------------Arithmetic operations-------------------------------------------------------
 
-class ArithmeticOperation : Instruction {
-protected:
-    static void check_flags(Processor *proc, int64_t x) { // TODO zmienilam na static
-        proc->ZF = x == 0;
-        proc->SF = x < 0;
-    }
-};
 
-class add : ArithmeticOperation {
+class Add : public Instruction {
 private:
-    mem *l;
-    Rvalue *r;
+    std::shared_ptr<Lvalue> lvalue;
+    std::shared_ptr<Rvalue> rvalue;
 public:
-    add(mem m, mem me) : l(&m), r(&me) {}
-    add(mem m, num nu) : l(&m), r(&nu) {}
-    add(mem m, lea le) : l(&m), r(&le) {}
+    Add(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
-class sub : ArithmeticOperation {
+class Sub : public Instruction {
 private:
-    mem *l;
-    Rvalue *r;
+    std::shared_ptr<Lvalue> lvalue;
+    std::shared_ptr<Rvalue> rvalue;
 public:
-    sub(mem m, mem me) : l(&m), r(&me) {}
-    sub(mem m, num nu) : l(&m), r(&nu) {}
-    sub(mem m, lea le) : l(&m), r(&le) {}
+    Sub(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
-class inc : ArithmeticOperation {
+class Inc : public Instruction {
 private:
-    mem *l;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    inc(mem m) : l(&m) {}
+    Inc(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
-class dec : ArithmeticOperation {
+class Dec : public Instruction {
 private:
-    mem *l;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    dec(mem m) : l(&m) {}
+    Dec(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
-//--------------------------------------------ones-------------------------------------------------------
-
-class one : Instruction {
+class One : public Instruction {
 private:
-    mem *l;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    one(mem m) : l(&m) {}
+    One(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    void execute(Processor *proc) override;
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 
 };
 
-class onez : Instruction {
+class Onez : public Instruction {
 private:
-    mem *l;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    onez(mem m) : l(&m) {}
+    Onez(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    void execute(Processor *proc) override;
-
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
 
-class ones : Instruction {
+class Ones : public Instruction {
 private:
-    mem *l;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    ones(mem m) : l(&m) {}
+    Ones(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
-    void execute(Processor *proc) override;
-
+    inline void execute(Memory *memory, Flags *flags) const;
+    inline void declare(Memory *memory) const {}
 };
-
-
-
-
-int64_t Rvalue::get_value(Processor *proc) {return 0;}
-
-void Lvalue::set_value(Processor *proc, int64_t new_val) {}
-
-int64_t num::get_value(Processor *proc) {return x;}
-
-int64_t lea::get_value(Processor *proc) {
-    for (size_t i = 0; i < proc->N; ++i) {
-        if (*id == *proc->labels[i])
-            return i;
-    }
-
-    //@TODO: Wyrzucamy jakiś wyjątek IDnotFound
-
-    return proc->N;
-}
-
-
-void Instruction::execute(Processor *proc) {}
-
-void data::execute(Processor *proc) {
-    if (proc->abused_memory < proc->N) {
-        proc->tab[proc->abused_memory] = n.get_value(proc);
-        proc->labels[proc->abused_memory] = id;
-        proc->abused_memory++;
-    }
-    else {
-        //@TODO: Zgłaszamy jakiś OutOfBoundsException
-    }
-}
-
-void mov::execute(Processor *proc) {l->set_value(proc, r->get_value(proc));}
-
-void add::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) + r->get_value(proc);
-    l->set_value(proc, x);
-    check_flags(proc, x);
-}
-
-void sub::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) - r->get_value(proc);
-    l->set_value(proc, x);
-    check_flags(proc, x);
-}
-
-void inc::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) + 1;
-    l->set_value(proc, x);
-    check_flags(proc, x);
-}
-
-void dec::execute(Processor *proc) {
-    int64_t x = l->get_value(proc) - 1;
-    l->set_value(proc, x);
-    check_flags(proc, x);
-}
-
-void one::execute(Processor *proc) {
-    l->set_value(proc, 1);
-}
-
-void onez::execute(Processor *proc) {
-    if (proc->ZF == 1)
-        l->set_value(proc, 1);
-}
-
-void ones::execute(Processor *proc) {
-    if (proc->SF == 1)
-        l->set_value(proc, 1);
-}
 
 
 class end_exception : public std:: exception {
@@ -355,25 +243,150 @@ public:
     }
 };
 
-class Program {
+
+class program {
 private:
-    std:: vector<Instruction> instruction;
+    std:: vector<std::shared_ptr<Instruction>> instructions;
     mutable size_t next_index = 0;
 public:
-    Program(std::initializer_list<Instruction> ins) : instruction(ins) {}
-    const Instruction& get_instruction() {
+    program(std::initializer_list<std::shared_ptr<Instruction>> ins) : instructions(ins) {}
+
+    const Instruction& get_instruction() const {
         if (!next_instruction())
             throw end_exception();
-        return instruction[next_index++];
+        return *instructions[next_index++];
     }
     bool next_instruction() const{
-        return next_index < instruction.size();
+        return next_index < instructions.size();
     }
-    void to_first_instruction() {
+    void to_first_instruction() const {
         next_index = 0;
     }
 
 };
+
+//---------------------------------------------------unique_pointers----------------------------------------------------
+
+
+std::shared_ptr<Num> num(value_t value) {
+    return std::make_shared<Num>(value);
+}
+
+std::shared_ptr<Lea> lea(ID id) {
+    return std::make_shared<Lea>(id);
+}
+
+std::shared_ptr<Mem> mem(std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Mem>(std::move(rvalue));
+}
+
+std::shared_ptr<Data> data(ID id, std::shared_ptr<Num> &&n) {
+    return std::make_shared<Data>(id, std::move(n));
+}
+
+std::shared_ptr<Mov> mov(std::shared_ptr<Lvalue> &&lvalue, std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Mov>(std::move(lvalue), std::move(rvalue));
+}
+
+std::shared_ptr<Add> add(std::shared_ptr<Lvalue> &&lvalue, std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Add>(std::move(lvalue), std::move(rvalue));
+}
+
+std::shared_ptr<Sub> sub(std::shared_ptr<Lvalue> &&lvalue, std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Sub>(std::move(lvalue), std::move(rvalue));
+}
+
+std::shared_ptr<Inc> inc(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Inc>(std::move(lvalue));
+}
+
+std::shared_ptr<Dec> dec(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Dec>(std::move(lvalue));
+}
+
+
+std::shared_ptr<One> one(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<One>(std::move(lvalue));
+}
+
+std::shared_ptr<Onez> onez(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Onez>(std::move(lvalue));
+}
+
+std::shared_ptr<Ones> ones(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Ones>(std::move(lvalue));
+}
+
+
+int64_t Num::get_value(Memory *memory) const {return x;}
+
+int64_t Lea::get_value(Memory *memory) const {
+    check_ID_correctness(id);
+    return memory->var_addr.at(id);
+}
+
+int64_t Mem::get_value(Memory *memory) const  {
+    return memory->mem_vector.at(rvalue->get_value(memory));
+}
+
+void Mem::set_value(Memory *memory, value_t new_val) const {
+    memory->mem_vector.at(rvalue->get_value(memory)) = new_val;
+}
+
+
+void Data::declare(Memory *memory) const {
+    check_ID_correctness(id);
+    memory->mem_vector.at(memory->next_index) = n->get_value(memory);
+    memory->var_addr.insert(std::make_pair(id, memory->next_index++));
+}
+
+void Mov::execute(Memory *memory, Flags *flags) const {
+    //std::cout <<
+    //memory->mem_vector.at(lv) = rvalue->get_value(memory);
+    lvalue->set_value(memory, rvalue->get_value(memory));
+}
+
+
+void Add::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) + rvalue->get_value(memory);
+    lvalue->set_value(memory, result);
+    flags->set(result);
+}
+void Sub::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) - rvalue->get_value(memory);
+    lvalue->set_value(memory, result);
+    flags->set(result);
+}
+
+void Inc::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) + 1;
+    lvalue->set_value(memory, result);
+    flags->set(result);
+}
+
+void Dec::execute(Memory *memory, Flags *flags) const {
+    value_t result = lvalue->get_value(memory) - 1;
+    lvalue->set_value(memory, result);
+    flags->set(result);
+}
+
+
+void One::execute(Memory *memory, Flags *flags) const {
+    lvalue->set_value(memory, 1);
+}
+void Onez::execute(Memory *memory, Flags *flags) const {
+    if (flags->is_zero())
+        lvalue->set_value(memory, 1);
+}
+void Ones::execute(Memory *memory, Flags *flags) const {
+    if (flags->is_signed())
+        lvalue->set_value(memory, 1);
+}
+
+class Something {
+
+};
+
 
 
 #endif //JNP1_6_OOASM_H

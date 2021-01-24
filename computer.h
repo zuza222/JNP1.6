@@ -10,26 +10,31 @@
 
 class  Computer {
 public:
-    explicit  Computer(size_t memory_size): memory(memory_size), flags() {}
-    void memory_dump(std::ostream& stream) {
+    explicit Computer(size_t memory_size): memory(memory_size), flags() {}
+    void memory_dump(std::ostream& stream) const {
         memory.dump(stream);
     }
-    void boot(Program& p) { // (const Program& p) ???
+
+    void boot(const program& p) {
+
+        memory.reset();
+
         while(p.next_instruction()) {
-            const Instruction& instruction = p.get_instruction();
-            instruction.pre_evaluate(memory);
+            p.get_instruction().declare(&memory);
         }
         p.to_first_instruction();
 
         while(p.next_instruction()) {
-            const Instruction& instruction = p.get_instruction();
-            instruction.evaluate(memory, flags);
+            p.get_instruction().execute(&memory, &flags);
         }
     }
+    /*
+    void boot(const Program& p) { // (const Program& p) ???
+    }
+     */
 private:
     Memory memory;
     Flags flags;
-
 };
 
 

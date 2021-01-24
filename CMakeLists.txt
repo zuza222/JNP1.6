@@ -3,4 +3,4 @@ project(JNP1.6)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(JNP1.6 main.cpp ooasm.h computer.h ooasm_example.cc)
+add_executable(JNP1.6 ooasm.h computer.h test_rafala.cpp)
