@@ -1,7 +1,3 @@
-//
-// Created by Zuza & Stasiek on 21.01.2021.
-//
-
 #ifndef JNP1_6_OOASM_H
 #define JNP1_6_OOASM_H
 
@@ -13,6 +9,7 @@
 
 class Rvalue;  //Nadklasa p-wartości
 class Lvalue;  //Nadklasa l-wartości
+class ID;
 class Num;
 class Lea;
 class Mem;
@@ -31,15 +28,7 @@ class Onez;
 class Ones;
 
 using value_t = int64_t;
-using ID = const char*;
 
-bool check_ID_correctness(ID id) {
-    std::string _id = id;
-    if (_id.length() < MIN_ID_LEN || _id.length() > MAX_ID_LEN)
-        throw std::invalid_argument("bad ID length");
-    else
-        return true;
-}
 
 class Memory {
 public:
@@ -56,7 +45,7 @@ public:
     }
 
 private:
-    std::unordered_map<ID, size_t> var_addr;
+    std::unordered_map<std::string, size_t> var_addr;
     size_t next_index = 0;
     std::vector<value_t> mem_vector;
 
@@ -86,7 +75,21 @@ public:
 
 //--------------------------------------------elements of OOAsm language-----------------------------------------------
 
-//Nadklasa p-wartości
+
+class ID {
+private:
+    std::string id;
+public:
+    ID(const char* _id) : id(_id) {
+        if (id.length() < MIN_ID_LEN || id.length() > MAX_ID_LEN)
+            throw std::invalid_argument("bad ID length");
+    }
+
+    std::string get() const {
+        return id;
+    }
+};
+
 class Rvalue {
 public:
     virtual inline value_t get_value(Memory *memory) const {return 0;};
@@ -321,8 +324,7 @@ std::shared_ptr<Ones> ones(std::shared_ptr<Lvalue> &&lvalue) {
 int64_t Num::get_value(Memory *memory) const {return x;}
 
 int64_t Lea::get_value(Memory *memory) const {
-    check_ID_correctness(id);
-    return memory->var_addr.at(id);
+    return memory->var_addr.at(id.get());
 }
 
 int64_t Mem::get_value(Memory *memory) const  {
@@ -335,14 +337,11 @@ void Mem::set_value(Memory *memory, value_t new_val) const {
 
 
 void Data::declare(Memory *memory) const {
-    check_ID_correctness(id);
     memory->mem_vector.at(memory->next_index) = n->get_value(memory);
-    memory->var_addr.insert(std::make_pair(id, memory->next_index++));
+    memory->var_addr.insert(std::make_pair(id.get(), memory->next_index++));
 }
 
 void Mov::execute(Memory *memory, Flags *flags) const {
-    //std::cout <<
-    //memory->mem_vector.at(lv) = rvalue->get_value(memory);
     lvalue->set_value(memory, rvalue->get_value(memory));
 }
 
