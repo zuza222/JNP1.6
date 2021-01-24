@@ -10,20 +10,20 @@
 
 class  Computer {
 public:
-    explicit  Computer(size_t memory_size): memory(memory_size), flags() {}
+    explicit Computer(size_t memory_size): memory(memory_size), flags() {}
     void memory_dump(std::ostream& stream) const {
         memory.dump(stream);
     }
 
-    void boot(std::unique_ptr<program> p) {
+    void boot(program p) {
 
-        while(p->next_instruction()) {
-            p->get_instruction().declare(&memory);
+        while(p.next_instruction()) {
+            p.get_instruction().declare(&memory);
         }
-        p->to_first_instruction();
+        p.to_first_instruction();
 
-        while(p->next_instruction()) {
-            p->get_instruction().execute(&memory, &flags);
+        while(p.next_instruction()) {
+            p.get_instruction().execute(&memory, &flags);
         }
 
     }

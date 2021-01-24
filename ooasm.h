@@ -80,8 +80,8 @@ public:
 
 class Lvalue {
 protected:
-    std::unique_ptr<Rvalue> rvalue;
-    Lvalue(std::unique_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
+    std::shared_ptr<Rvalue> rvalue;
+    Lvalue(std::shared_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
 
 public:
     virtual inline value_t get_value(Memory *memory) const = 0;
@@ -108,7 +108,7 @@ public:
 
 class Mem : public Rvalue, public Lvalue {
 public:
-    explicit Mem(std::unique_ptr<Rvalue> &&rvalue) : Lvalue(std::move(rvalue)) {}
+    explicit Mem(std::shared_ptr<Rvalue> &&rvalue) : Lvalue(std::move(rvalue)) {}
 
     value_t inline get_value(Memory *memory) const override;
 
@@ -123,23 +123,23 @@ public:
     virtual void declare(Memory *memory) const = 0;
 };
 
-class Data : Instruction {
+class Data : public Instruction {
 private:
     ID id;
-    std::unique_ptr<Num> n;
+    std::shared_ptr<Num> n;
 public:
-    Data(ID _id, std::unique_ptr<Num> &&_n) : id(_id), n(std::move(_n)) {}
+    Data(ID _id, std::shared_ptr<Num> &&_n) : id(_id), n(std::move(_n)) {}
 
     inline void execute(Memory *memory, Flags *flags) const {}
     inline void declare(Memory *memory) const;
 };
 
-class Mov : Instruction {
+class Mov : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
-    std::unique_ptr<Rvalue> rvalue;
+    std::shared_ptr<Lvalue> lvalue;
+    std::shared_ptr<Rvalue> rvalue;
 public:
-    Mov(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
+    Mov(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
@@ -148,74 +148,74 @@ public:
 //--------------------------------------------Arithmetic operations-------------------------------------------------------
 
 
-class Add : Instruction {
+class Add : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
-    std::unique_ptr<Rvalue> rvalue;
+    std::shared_ptr<Lvalue> lvalue;
+    std::shared_ptr<Rvalue> rvalue;
 public:
-    Add(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
+    Add(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
 };
 
-class Sub : Instruction {
+class Sub : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
-    std::unique_ptr<Rvalue> rvalue;
+    std::shared_ptr<Lvalue> lvalue;
+    std::shared_ptr<Rvalue> rvalue;
 public:
-    Sub(std::unique_ptr<Lvalue> &&l, std::unique_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
+    Sub(std::shared_ptr<Lvalue> &&l, std::shared_ptr<Rvalue> &&r) : lvalue(std::move(l)), rvalue(std::move(r)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
 };
 
-class Inc : Instruction {
+class Inc : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    Inc(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+    Inc(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
 };
 
-class Dec : Instruction {
+class Dec : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    Dec(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+    Dec(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
 };
 
-class One : Instruction {
+class One : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    One(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+    One(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
 
 };
 
-class Onez : Instruction {
+class Onez : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    Onez(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+    Onez(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
 };
 
-class Ones : Instruction {
+class Ones : public Instruction {
 private:
-    std::unique_ptr<Lvalue> lvalue;
+    std::shared_ptr<Lvalue> lvalue;
 public:
-    Ones(std::unique_ptr<Lvalue> l) : lvalue(std::move(l)) {}
+    Ones(std::shared_ptr<Lvalue> &&l) : lvalue(std::move(l)) {}
 
     inline void execute(Memory *memory, Flags *flags) const;
     inline void declare(Memory *memory) const {}
@@ -254,53 +254,53 @@ public:
 //---------------------------------------------------unique_pointers----------------------------------------------------
 
 
-std::unique_ptr<Num> num(value_t value) {
-    return std::make_unique<Num>(value);
+std::shared_ptr<Num> num(value_t value) {
+    return std::make_shared<Num>(value);
 }
 
-std::unique_ptr<Lea> lea(ID id) {
-    return std::make_unique<Lea>(id);
+std::shared_ptr<Lea> lea(ID id) {
+    return std::make_shared<Lea>(id);
 }
 
-std::unique_ptr<Mem> mem(std::unique_ptr<Rvalue> &&rvalue) {
-    return std::make_unique<Mem>(std::move(rvalue));
+std::shared_ptr<Mem> mem(std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Mem>(std::move(rvalue));
 }
 
-std::unique_ptr<Data> data(ID id, std::unique_ptr<Num> &&n) {
-    return std::make_unique<Data>(id, std::move(n));
+std::shared_ptr<Data> data(ID id, std::shared_ptr<Num> &&n) {
+    return std::make_shared<Data>(id, std::move(n));
 }
 
-std::unique_ptr<Mov> mov(std::unique_ptr<Lvalue> &&lvalue, std::unique_ptr<Rvalue> &&rvalue) {
-    return std::make_unique<Mov>(std::move(lvalue), std::move(rvalue));
+std::shared_ptr<Mov> mov(std::shared_ptr<Lvalue> &&lvalue, std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Mov>(std::move(lvalue), std::move(rvalue));
 }
 
-std::unique_ptr<Add> add(std::unique_ptr<Lvalue> &&lvalue, std::unique_ptr<Rvalue> &&rvalue) {
-    return std::make_unique<Add>(std::move(lvalue), std::move(rvalue));
+std::shared_ptr<Add> add(std::shared_ptr<Lvalue> &&lvalue, std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Add>(std::move(lvalue), std::move(rvalue));
 }
 
-std::unique_ptr<Sub> sub(std::unique_ptr<Lvalue> &&lvalue, std::unique_ptr<Rvalue> &&rvalue) {
-    return std::make_unique<Sub>(std::move(lvalue), std::move(rvalue));
+std::shared_ptr<Sub> sub(std::shared_ptr<Lvalue> &&lvalue, std::shared_ptr<Rvalue> &&rvalue) {
+    return std::make_shared<Sub>(std::move(lvalue), std::move(rvalue));
 }
 
-std::unique_ptr<Inc> inc(std::unique_ptr<Lvalue> &&lvalue) {
-    return std::make_unique<Inc>(std::move(lvalue));
+std::shared_ptr<Inc> inc(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Inc>(std::move(lvalue));
 }
 
-std::unique_ptr<Dec> dec(std::unique_ptr<Lvalue> &&lvalue) {
-    return std::make_unique<Dec>(std::move(lvalue));
+std::shared_ptr<Dec> dec(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Dec>(std::move(lvalue));
 }
 
 
-std::unique_ptr<One> one(std::unique_ptr<Lvalue> &&lvalue) {
-    return std::make_unique<One>(std::move(lvalue));
+std::shared_ptr<One> one(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<One>(std::move(lvalue));
 }
 
-std::unique_ptr<Onez> onez(std::unique_ptr<Lvalue> &&lvalue) {
-    return std::make_unique<Onez>(std::move(lvalue));
+std::shared_ptr<Onez> onez(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Onez>(std::move(lvalue));
 }
 
-std::unique_ptr<Ones> ones(std::unique_ptr<Lvalue> &&lvalue) {
-    return std::make_unique<Ones>(std::move(lvalue));
+std::shared_ptr<Ones> ones(std::shared_ptr<Lvalue> &&lvalue) {
+    return std::make_shared<Ones>(std::move(lvalue));
 }
 
 
