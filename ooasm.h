@@ -1,5 +1,5 @@
 //
-// Created by zuza on 21.01.2021.
+// Created by Zuza & Stasiek on 21.01.2021.
 //
 
 #ifndef JNP1_6_OOASM_H
@@ -382,11 +382,5 @@ void Ones::execute(Memory *memory, Flags *flags) const {
     if (flags->is_signed())
         lvalue->set_value(memory, 1);
 }
-
-class Something {
-
-};
-
-
 
 #endif //JNP1_6_OOASM_H
