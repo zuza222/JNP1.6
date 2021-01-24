@@ -28,10 +28,7 @@ public:
             p.get_instruction().execute(&memory, &flags);
         }
     }
-    /*
-    void boot(const Program& p) { // (const Program& p) ???
-    }
-     */
+    
 private:
     Memory memory;
     Flags flags;
