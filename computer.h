@@ -8,13 +8,26 @@
 #include "ooasm.h"
 #include <bits/stdc++.h>
 
+/*
+ * Klasa reprezentująca komputer
+ */
 class  Computer {
 public:
     explicit Computer(size_t memory_size): memory(memory_size), flags() {}
+
+    /*
+     * Dokonuje zrzutu pamięci na podany strumień.
+     */
     void memory_dump(std::ostream& stream) const {
         memory.dump(stream);
     }
 
+    /*
+     * Ładuje oraz wykonuje przekazany program w języku OOAsm.
+     * Podczas ładowania programu pamięć komputera jest inicjowana zerami.
+     * Następnie wszystkie zmienne są kopiowane do pamięci komputera zgodnie
+     * z kolejnością deklaracji, a później wykonywane są pozostałe instrukcje.
+     */
     void boot(const program& p) {
 
         memory.reset();
