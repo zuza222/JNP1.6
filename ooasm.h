@@ -8,7 +8,8 @@
 #include <bits/stdc++.h>
 #include <iostream>
 
-
+#define MIN_ID_LEN 1
+#define MAX_ID_LEN 10
 
 class Rvalue;  //Nadklasa p-wartości
 class Lvalue;  //Nadklasa l-wartości
@@ -32,6 +33,13 @@ class Ones;
 using value_t = int64_t;
 using ID = const char*;
 
+bool check_ID_correctness(ID id) {
+    std::string _id = id;
+    if (_id.length() < MIN_ID_LEN || _id.length() > MAX_ID_LEN)
+        throw std::invalid_argument("bad ID length");
+    else
+        return true;
+}
 
 class Memory {
 public:
@@ -75,7 +83,7 @@ public:
 //Nadklasa p-wartości
 class Rvalue {
 public:
-    virtual inline value_t get_value(Memory *memory) const = 0;
+    virtual inline value_t get_value(Memory *memory) const {return 0;};
 };
 
 class Lvalue {
@@ -84,8 +92,8 @@ protected:
     Lvalue(std::shared_ptr<Rvalue> &&r) : rvalue(std::move(r)) {}
 
 public:
-    virtual inline value_t get_value(Memory *memory) const = 0;
-    virtual inline void set_value(Memory *memory , value_t new_val) const = 0;
+    virtual inline value_t get_value(Memory *memory) const {return 0;};
+    virtual inline void set_value(Memory *memory , value_t new_val) const {};
 };
 
 class Num : public Rvalue {
@@ -307,6 +315,7 @@ std::shared_ptr<Ones> ones(std::shared_ptr<Lvalue> &&lvalue) {
 int64_t Num::get_value(Memory *memory) const {return x;}
 
 int64_t Lea::get_value(Memory *memory) const {
+    check_ID_correctness(id);
     return memory->var_addr.at(id);
 }
 
@@ -320,6 +329,7 @@ void Mem::set_value(Memory *memory, value_t new_val) const {
 
 
 void Data::declare(Memory *memory) const {
+    check_ID_correctness(id);
     memory->mem_vector.at(memory->next_index) = n->get_value(memory);
     memory->var_addr.insert(std::make_pair(id, memory->next_index++));
 }
@@ -367,7 +377,9 @@ void Ones::execute(Memory *memory, Flags *flags) const {
         lvalue->set_value(memory, 1);
 }
 
+class Something {
 
+};
 
 
 
