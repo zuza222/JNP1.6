@@ -1,3 +1,6 @@
+
+
+
 Celem zadania jest stworzenie symulacji komputera z pamięcią,
 obsługującej język typu asembler. Symulację należy zaimplementować,
 używając programowania obiektowego w C++.
