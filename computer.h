@@ -1,5 +1,5 @@
 //
-// Created by zuza on 21.01.2021.
+// Created by Zuza & Stasiek on 21.01.2021.
 //
 
 #ifndef JNP1_6_COMPUTER_H
